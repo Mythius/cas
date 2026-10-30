@@ -22,11 +22,22 @@ node index.js
 | `AUTH_BASE_URL` | no (default `http://localhost:${PORT}`) | Public base URL used to build OAuth callback URLs |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | to enable Google login | From the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
 | `MS_CLIENT_ID` / `MS_CLIENT_SECRET` | to enable Microsoft login | From the [Azure Portal](https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps) |
+| `MS_ALLOW_UPN_FALLBACK` | no (default `false`) | Migration aid: accept a work/school account's `userPrincipalName` when the `xms_edov` email claim isn't configured yet. See "Microsoft sign-in and email verification" below. |
 | `GMAIL_USER` / `GMAIL_PASS` / `EMAIL_FROM` | to send email login codes via Gmail | Gmail address + [app password](https://myaccount.google.com/apppasswords). Or set `EMAIL_TYPE=smtp` with `SMTP_HOST` / `SMTP_USER` / `SMTP_PASS` to send through your own mail server, or `EMAIL_TYPE=linux` to use local `sendmail`. Unconfigured: dev logs codes to the console, production disables email login. |
 | `SSO` | no (default `false`) | When `true`, a valid session cookie lets a user skip re-authentication on subsequent logins. Off by default — every login goes through the provider. |
 
 Google/Microsoft OAuth redirect URIs should point at:
 `${AUTH_BASE_URL}/auth/callback/google` and `${AUTH_BASE_URL}/auth/callback/microsoft`.
+
+### Microsoft sign-in and email verification
+
+Client apps treat the email in our JWT as proof the user owns that address, so we only sign an email Microsoft itself vouches for. Graph's `mail` field is **not** used: it is free text that an admin of any Microsoft tenant can set to someone else's address.
+
+- **Personal Microsoft accounts:** the `email` ID-token claim.
+- **Work/school accounts:** the `email` claim, only when the `xms_edov` claim is true (Microsoft verified the tenant owns that email's domain). Configure it in Azure: App registration -> Token configuration -> Add optional claim -> ID -> `email` and `xms_edov`.
+- Anything else is rejected with a 403. `MS_ALLOW_UPN_FALLBACK=true` temporarily accepts the work account's `userPrincipalName` instead.
+
+The signed JWT also carries `tid` (the Microsoft tenant) so client apps can pin an account to its tenant.
 
 ### Registering client apps (`clients.json`)
 

@@ -10,6 +10,7 @@ const { OAuth2Client } = require("google-auth-library");
 const { sendEmail } = require("./tools/mail.js");
 const { loadKeys, publicKeyToJwks } = require("./auth/keys.js");
 const { expose: exposeEndpoints } = require("./tools/listEndpoints.js");
+const { resolveMicrosoftEmail } = require("./auth/microsoftIdentity.js");
 
 // ---------------------------------------------------------------------------
 // Config
@@ -399,13 +400,24 @@ app.get("/auth/callback/microsoft", async (req, res) => {
     });
     const profile = await profileResponse.json();
 
-    const email = profile.mail || profile.userPrincipalName;
-    if (!email) {
-      return res.status(400).json({ error: "Could not retrieve user email" });
+    // Never trust Graph's `mail` — it's free text any tenant admin can set to
+    // someone else's address. Only an email Microsoft vouches for is accepted
+    // (see auth/microsoftIdentity.js).
+    const resolved = resolveMicrosoftEmail({
+      idToken: tokenData.id_token,
+      profile,
+      clientId: MS_CLIENT_ID,
+      allowUpnFallback: process.env.MS_ALLOW_UPN_FALLBACK === "true",
+    });
+    if (resolved.error) {
+      console.warn("[AUTH] Microsoft login rejected:", resolved.error);
+      return res.status(403).json({ error: resolved.error });
     }
+    const email = resolved.email;
 
     const userInfo = {
       sub: profile.id,
+      tid: resolved.tid,
       email,
       name: profile.displayName || email,
       picture: null,
