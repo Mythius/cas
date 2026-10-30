@@ -4,3 +4,4 @@ package-lock.json
 google/*.json
 .env
 *.pem
+clients.json
