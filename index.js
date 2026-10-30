@@ -10,7 +10,7 @@ const { OAuth2Client } = require("google-auth-library");
 const { sendEmail } = require("./tools/mail.js");
 const { loadKeys, publicKeyToJwks } = require("./auth/keys.js");
 const { expose: exposeEndpoints } = require("./tools/listEndpoints.js");
-const { resolveMicrosoftEmail } = require("./auth/microsoftIdentity.js");
+const { resolveMicrosoftEmail, describeIdToken } = require("./auth/microsoftIdentity.js");
 
 // ---------------------------------------------------------------------------
 // Config
@@ -409,10 +409,12 @@ app.get("/auth/callback/microsoft", async (req, res) => {
       clientId: MS_CLIENT_ID,
       allowUpnFallback: process.env.MS_ALLOW_UPN_FALLBACK === "true",
     });
+    const claimSummary = describeIdToken(tokenData.id_token);
     if (resolved.error) {
-      console.warn("[AUTH] Microsoft login rejected:", resolved.error);
+      console.warn(`[AUTH] Microsoft login REJECTED (${resolved.error}) ${claimSummary}`);
       return res.status(403).json({ error: resolved.error });
     }
+    console.log(`[AUTH] Microsoft login accepted via ${resolved.method} ${claimSummary}`);
     const email = resolved.email;
 
     const userInfo = {

@@ -84,4 +84,17 @@ function resolveMicrosoftEmail({ idToken, profile, clientId, allowUpnFallback = 
   };
 }
 
-module.exports = { resolveMicrosoftEmail, decodeIdToken, PERSONAL_ACCOUNT_TENANT };
+// What Microsoft actually sent, for the server log — presence flags and the
+// tenant only, never the email or any token value.
+function describeIdToken(idToken) {
+  const claims = decodeIdToken(idToken);
+  if (!claims) return "id_token=unreadable";
+  return [
+    `tid=${claims.tid}`,
+    claims.tid === PERSONAL_ACCOUNT_TENANT ? "account=personal" : "account=work/school",
+    `email_claim=${typeof claims.email === "string" ? "present" : "absent"}`,
+    `xms_edov=${claims.xms_edov === undefined ? "absent" : String(claims.xms_edov)}`,
+  ].join(" ");
+}
+
+module.exports = { resolveMicrosoftEmail, decodeIdToken, describeIdToken, PERSONAL_ACCOUNT_TENANT };
